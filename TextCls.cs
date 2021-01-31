@@ -34,6 +34,7 @@ namespace Ml_command_module
 
     class ML_text_analizer
     {
+        List<string> CommandsList;
         List<string>CommandsTokens;
         PredictionEngine<CommandsData, IssuePrediction> _predEngine;
         public void BuildModel()
@@ -45,16 +46,20 @@ namespace Ml_command_module
 
             // Create an IEnumerable from IDataView
             IEnumerable<CommandsData> trainingDataViewEnumerable = _mlContext.Data.CreateEnumerable<CommandsData>(trainingDataView, reuseRowObject: true);
-            var command_list = trainingDataViewEnumerable.Select(r => r.TextR).ToList();
+            var r_text_list = trainingDataViewEnumerable.Select(r => r.TextR).ToList();
 
             //создаем словарь (токены) из слов для команд
 
             char[] separators = new char[] { ' ', '.' };
-            string string_words = string.Join(" ", command_list.ToArray());
+            string string_words = string.Join(" ", r_text_list.ToArray());
             string[] test_subs = string_words.Split(separators, StringSplitOptions.RemoveEmptyEntries);
             List<string> words_command_list = new List<string>(test_subs);
 
             CommandsTokens = words_command_list.Distinct().ToList();
+
+            //заполним также список всех команд (label) в отдельный список. 
+            CommandsList = trainingDataViewEnumerable.Select(r => r.Command).ToList().Distinct().ToList();
+
 
             var pipeline = _mlContext.Transforms.Conversion.MapValueToKey(inputColumnName: "Command", outputColumnName: "Label")
             .Append(_mlContext.Transforms.Text.FeaturizeText(inputColumnName: "TextR", outputColumnName: "Features"))
@@ -97,11 +102,15 @@ namespace Ml_command_module
 
             var prediction = _predEngine.Predict(issue);
             result = prediction.Command;
-            Console.WriteLine($"=============== Single Prediction just-trained-model - Result: {prediction.Command} ===============");
+           // Console.WriteLine($"=============== Single Prediction just-trained-model - Result: {prediction.Command} ===============");
             
             return result;
         }
-    
+   
+        public List<string> GetCommandsList()
+        {
+            return CommandsList;
+        }
     }
 
 

@@ -4,7 +4,7 @@ using NAudio.Wave;
 using System.IO;
 using Google.Cloud.Speech.V1;
 using Ml_command_module;
-
+using System.Collections.Generic;
 
 namespace VoiceControlLibrary
 {
@@ -67,6 +67,13 @@ namespace VoiceControlLibrary
 
         }
 
+        public string[] GetCommandsList()
+        {
+            if (mlTextanalyzer == null)
+                return null;
+            else
+                return mlTextanalyzer.GetCommandsList().ToArray();
+        }
         ~VoiceManager()
         {
             DisableSystem();
