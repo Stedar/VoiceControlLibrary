@@ -36,10 +36,15 @@ namespace Ml_command_module
     {
         List<string> CommandsList;
         List<string>CommandsTokens;
+        List<string> PeriodsTokens;
+
         PredictionEngine<CommandsData, IssuePrediction> _predEngine;
+        PredictionEngine<CommandsData, IssuePrediction> _predEngine_periods;
+
         public void BuildModel()
         {
 
+            //основная модель - поиск команд
             MLContext _mlContext = new MLContext();
             String FilePath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\train_commands.csv";
             IDataView trainingDataView = _mlContext.Data.LoadFromTextFile<CommandsData>(FilePath, separatorChar: ';', hasHeader: false);
@@ -72,8 +77,36 @@ namespace Ml_command_module
              _predEngine = _mlContext.Model.CreatePredictionEngine<CommandsData, IssuePrediction>(_trainedModel);
 
 
+            //вспомогательная модель - отбор по периодам
+            MLContext _mlContext_periods = new MLContext();
+            FilePath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\train_periods.csv";
+            trainingDataView = _mlContext.Data.LoadFromTextFile<CommandsData>(FilePath, separatorChar: ';', hasHeader: false);
+
+            // Create an IEnumerable from IDataView
+            trainingDataViewEnumerable = _mlContext_periods.Data.CreateEnumerable<CommandsData>(trainingDataView, reuseRowObject: true);
+            r_text_list = trainingDataViewEnumerable.Select(r => r.TextR).ToList();
+
+            string_words = string.Join(" ", r_text_list.ToArray());
+            test_subs = string_words.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+            words_command_list = new List<string>(test_subs);
+
+            PeriodsTokens = words_command_list.Distinct().ToList();
+
+
+
+            var pipeline_periods = _mlContext_periods.Transforms.Conversion.MapValueToKey(inputColumnName: "Command", outputColumnName: "Label")
+            .Append(_mlContext_periods.Transforms.Text.FeaturizeText(inputColumnName: "TextR", outputColumnName: "Features"))
+            .AppendCacheCheckpoint(_mlContext_periods);
+
+            var trainingPipelinePeriods = pipeline_periods.Append(_mlContext_periods.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features"))
+            .Append(_mlContext_periods.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
+            ITransformer _trainedModel_periods = trainingPipelinePeriods.Fit(trainingDataView);
+
+            _predEngine_periods = _mlContext_periods.Model.CreatePredictionEngine<CommandsData, IssuePrediction>(_trainedModel_periods);
+            
+
         }
-        
+
         public string PredictCommand(string RecognizedString)
         {
             string result = "None";
@@ -106,7 +139,41 @@ namespace Ml_command_module
             
             return result;
         }
-   
+
+        public string PredictPeriodSyntax(string RecognizedString)
+        {
+            string result = "None";
+
+            if (_predEngine_periods == null)
+                return "_predEngine not found";
+
+            char[] separators = new char[] { ' ', '.' };
+            string t = RecognizedString.ToLower();
+            t = t.Replace(",", "").Replace("ё", "е");
+
+            string[] subs = t.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+            List<string> list_test = new List<string>(subs);
+
+            IEnumerable<string> CommonList = list_test.Intersect(PeriodsTokens);
+            var singleString = string.Join(" ", CommonList.ToArray());
+
+            if (singleString.Length == 0)
+                singleString = "непонтяно";
+
+            CommandsData issue = new CommandsData()
+            {
+                TextR = singleString,
+            };
+
+
+            var prediction = _predEngine_periods.Predict(issue);
+            result = prediction.Command;
+            // Console.WriteLine($"=============== Single Prediction just-trained-model - Result: {prediction.Command} ===============");
+
+            return result;
+        }
+
+
         public List<string> GetCommandsList()
         {
             return CommandsList;

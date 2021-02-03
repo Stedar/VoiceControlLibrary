@@ -117,6 +117,11 @@ namespace VoiceControlLibrary
             return strRecgnResult;
         }
 
+
+        public void SetCommandRecognizedString(string sValue)
+        {
+            strRecgnResult = sValue;
+        }
         public string GetCommandRecognizedString()
         {
           // return "test";
@@ -126,7 +131,15 @@ namespace VoiceControlLibrary
                 return mlTextanalyzer.PredictCommand(strRecgnResult);
 
         }
+        public string GetPeriodRecognizedString()
+        {
+            // return "test";
+            if (strRecgnResult == "")
+                return "нераспознано";
+            else
+                return mlTextanalyzer.PredictPeriodSyntax(strRecgnResult);
 
+        }
         public void ClearRecognitionResult()
         {
             strRecgnResult = "";
