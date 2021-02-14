@@ -46,8 +46,8 @@ namespace Ml_command_module
 
             //основная модель - поиск команд
             MLContext _mlContext = new MLContext();
-            String FilePath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\train_commands.csv";
-            IDataView trainingDataView = _mlContext.Data.LoadFromTextFile<CommandsData>(FilePath, separatorChar: ';', hasHeader: false);
+            String FilePath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            IDataView trainingDataView = _mlContext.Data.LoadFromTextFile<CommandsData>(FilePath + "\\train_commands.csv", separatorChar: ';', hasHeader: false);
 
             // Create an IEnumerable from IDataView
             IEnumerable<CommandsData> trainingDataViewEnumerable = _mlContext.Data.CreateEnumerable<CommandsData>(trainingDataView, reuseRowObject: true);
@@ -61,10 +61,14 @@ namespace Ml_command_module
             List<string> words_command_list = new List<string>(test_subs);
 
             CommandsTokens = words_command_list.Distinct().ToList();
+            //сохраняем список токенов в файл
+            System.IO.File.WriteAllLines(FilePath + "\\CommandsTokens.txt", CommandsTokens);
 
             //заполним также список всех команд (label) в отдельный список. 
             CommandsList = trainingDataViewEnumerable.Select(r => r.Command).ToList().Distinct().ToList();
-
+            
+            //сохраняем список команд в файл
+            System.IO.File.WriteAllLines(FilePath + "\\Commands.txt", CommandsList);
 
             var pipeline = _mlContext.Transforms.Conversion.MapValueToKey(inputColumnName: "Command", outputColumnName: "Label")
             .Append(_mlContext.Transforms.Text.FeaturizeText(inputColumnName: "TextR", outputColumnName: "Features"))
@@ -75,12 +79,13 @@ namespace Ml_command_module
             ITransformer _trainedModel = trainingPipeline.Fit(trainingDataView);
 
              _predEngine = _mlContext.Model.CreatePredictionEngine<CommandsData, IssuePrediction>(_trainedModel);
+            // Save model
+            _mlContext.Model.Save(_trainedModel, trainingDataView.Schema, FilePath + "\\model_main_cls.zip");
 
 
             //вспомогательная модель - отбор по периодам
             MLContext _mlContext_periods = new MLContext();
-            FilePath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\train_periods.csv";
-            trainingDataView = _mlContext.Data.LoadFromTextFile<CommandsData>(FilePath, separatorChar: ';', hasHeader: false);
+            trainingDataView = _mlContext.Data.LoadFromTextFile<CommandsData>(FilePath + "\\train_periods.csv", separatorChar: ';', hasHeader: false);
 
             // Create an IEnumerable from IDataView
             trainingDataViewEnumerable = _mlContext_periods.Data.CreateEnumerable<CommandsData>(trainingDataView, reuseRowObject: true);
@@ -91,7 +96,8 @@ namespace Ml_command_module
             words_command_list = new List<string>(test_subs);
 
             PeriodsTokens = words_command_list.Distinct().ToList();
-
+            //сохраняем токены в файл
+            System.IO.File.WriteAllLines(FilePath + "\\PeriodsTokens.txt", PeriodsTokens);
 
 
             var pipeline_periods = _mlContext_periods.Transforms.Conversion.MapValueToKey(inputColumnName: "Command", outputColumnName: "Label")
@@ -103,7 +109,53 @@ namespace Ml_command_module
             ITransformer _trainedModel_periods = trainingPipelinePeriods.Fit(trainingDataView);
 
             _predEngine_periods = _mlContext_periods.Model.CreatePredictionEngine<CommandsData, IssuePrediction>(_trainedModel_periods);
-            
+
+            // Save model
+            _mlContext.Model.Save(_trainedModel_periods, trainingDataView.Schema, FilePath + "\\model_periods_cls.zip");
+
+
+        }
+
+        public void LoadModels()
+        {
+            if (CommandsList!=null)
+                CommandsList.Clear();
+            CommandsList = new List<string>();
+            if (CommandsTokens != null)
+                CommandsTokens.Clear();
+            CommandsTokens = new List<string>();
+            if (PeriodsTokens != null)
+                PeriodsTokens.Clear();
+            PeriodsTokens = new List<string>();
+
+            //Define DataViewSchema for data preparation pipeline and trained model
+            DataViewSchema modelSchema;
+            MLContext _mlContext = new MLContext();
+            String FilePath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+
+            // Load trained model
+            ITransformer _trainedModel = _mlContext.Model.Load(FilePath + "\\model_main_cls.zip", out modelSchema);
+
+            var logFile = File.ReadAllLines(FilePath + "\\Commands.txt");
+            foreach (var s in logFile) CommandsList.Add(s);
+
+            logFile = File.ReadAllLines(FilePath + "\\CommandsTokens.txt");
+            foreach (var s in logFile) CommandsTokens.Add(s);
+
+       
+            //_predEngine_periods = _mlContext_periods.Model.CreatePredictionEngine<CommandsData, IssuePrediction>(_trainedModel_periods);
+            _predEngine = _mlContext.Model.CreatePredictionEngine<CommandsData, IssuePrediction>(_trainedModel);
+
+            MLContext _mlContext_periods = new MLContext();
+
+            // Load trained model
+            ITransformer _trainedModel_periods = _mlContext_periods.Model.Load(FilePath + "\\model_periods_cls.zip", out modelSchema);
+
+
+            logFile = File.ReadAllLines(FilePath + "\\PeriodsTokens.txt");
+            foreach (var s in logFile) PeriodsTokens.Add(s);
+
+            _predEngine_periods = _mlContext_periods.Model.CreatePredictionEngine<CommandsData, IssuePrediction>(_trainedModel_periods);
 
         }
 

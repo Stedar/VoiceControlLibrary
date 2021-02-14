@@ -61,11 +61,15 @@ namespace VoiceControlLibrary
         {
             return System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
         }
-        public void InitVoiceManager()
+        public void InitVoiceManager(bool rebuld_models)
         {
-            mlTextanalyzer.BuildModel();
+            if (rebuld_models)
+                mlTextanalyzer.BuildModel();
+            else
+                mlTextanalyzer.LoadModels();
 
         }
+
 
         public string[] GetCommandsList()
         {
