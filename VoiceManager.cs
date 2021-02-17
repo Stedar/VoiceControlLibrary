@@ -203,8 +203,9 @@ namespace VoiceControlLibrary
             {
                 StopRecord();
             }
-            else if (!isWriting & ts.Seconds >= IdleTimeAmount)// если молчание длиится долго, перезапускаем Запись
+            else if (!isWriting & ts.Seconds >= IdleTimeAmount)// если молчание длиится долго, останаливаем Запись
             {
+                isResultRecieved = true;
                 StopRecord();
 
             }
