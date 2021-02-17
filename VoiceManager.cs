@@ -61,7 +61,7 @@ namespace VoiceControlLibrary
         {
             return System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
         }
-        public void InitVoiceManager(bool rebuld_models)
+        public void InitVoiceManager(bool rebuld_models=true)
         {
             if (rebuld_models)
                 mlTextanalyzer.BuildModel();
@@ -114,6 +114,7 @@ namespace VoiceControlLibrary
             strRecgnResult = "";
             max_v = 0.0f;
             isRecordStarted = true;
+            isResultRecieved = false;
         }
 
         public string GetRecognitionResult()
@@ -163,6 +164,11 @@ namespace VoiceControlLibrary
             isRecordStarted = false;
             if (this.isWriting)
                 SpeechToText();
+        }
+
+        public bool GetResultStatus()
+        {
+            return isResultRecieved;
         }
 
 
